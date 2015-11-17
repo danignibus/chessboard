@@ -52,6 +52,10 @@ public:
     {
         return float3(x * operand, y * operand, z * operand);
     }
+    float3 operator/(const float3& operand) const
+    {
+        return float3(x / operand.x, y / operand.y, z / operand.z);
+    }
     
     void operator-=(const float3& a)
     {

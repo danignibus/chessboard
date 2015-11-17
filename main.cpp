@@ -815,9 +815,9 @@ public:
        objects.push_back(rectPlane);
 
         //rook piece
-        ClippedQuadric *rook = new ClippedQuadric(&material);
-        rook->rook();
-        rook->transform(float4x4::scaling(float3(.20,.25,.25)) * float4x4::translation(float3(-0.75,-0.15,-0.2)));
+//        ClippedQuadric *rook = new ClippedQuadric(&material);
+//        rook->rook();
+//        rook->transform(float4x4::scaling(float3(.20,.25,.25)) * float4x4::translation(float3(-0.75,-0.15,-0.2)));
         
         //pawn piece: sphere, oval, cone
         ClippedQuadric *firstPawn = new ClippedQuadric(&phongBlinnMaterial);
@@ -839,18 +839,41 @@ public:
         kingCone->pawnCone();
         kingCone->transform(float4x4::scaling(float3(.30,.30,.30)) * float4x4::translation(float3(-1.5,-0.65,0.0)));
         
+        //bishop piece
+        ClippedQuadric *bishopBottom = new ClippedQuadric(&phongBlinnMaterial);
+        bishopBottom->oval();
+        bishopBottom->transform(float4x4::scaling(float3(.35,.30,.30)) * float4x4::translation(float3(-.5,-.95,-.5)));
+        ClippedQuadric *bishopBody = new ClippedQuadric(&phongBlinnMaterial);
+        bishopBody->bottomOfQueen();
+        bishopBody->transform(float4x4::scaling(float3(.15,.40,.15)) * float4x4::translation(float3(-.5,-.45,-.5)));
+        ClippedQuadric *bishopBigOval = new ClippedQuadric(&phongBlinnMaterial);
+        bishopBigOval->oval();
+        bishopBigOval->transform(float4x4::scaling(float3(.30,.12,.25)) * float4x4::translation(float3(-0.5,-.11,-.5)));
+        ClippedQuadric *bishopSmallOval1 = new ClippedQuadric(&phongBlinnMaterial);
+        bishopSmallOval1->oval();
+        bishopSmallOval1->transform(float4x4::scaling(float3(.17,.05,.15)) * float4x4::translation(float3(-0.5,.02,-.5)));
+        ClippedQuadric *bishopSmallOval2 = new ClippedQuadric(&phongBlinnMaterial);
+        bishopSmallOval2->oval();
+        bishopSmallOval2->transform(float4x4::scaling(float3(.17,.05,.15)) * float4x4::translation(float3(-0.5,0.1,-.5)));
+        ClippedQuadric *bishopHead = new ClippedQuadric(&phongBlinnMaterial);
+        bishopHead->oval();
+        bishopHead->transform(float4x4::scaling(float3(.20,.30,.15)) * float4x4::translation(float3(-0.5,0.25,-.5)));
+        ClippedQuadric *bishopTinyTop = new ClippedQuadric(&phongBlinnMaterial);
+        bishopTinyTop->oval();
+        bishopTinyTop->transform(float4x4::scaling(float3(.05,.05,.05)) * float4x4::translation(float3(-0.5,0.60,-.5)));
+        
         //queen piece
         ClippedQuadric *bottomOfQueen = new ClippedQuadric(&goldMetal);
         bottomOfQueen->bottomOfQueen();
-        bottomOfQueen->transform(float4x4::scaling(float3(.15,.25,.25)) * float4x4::translation(float3(0.35,-.4,0.9)));
+        bottomOfQueen->transform(float4x4::scaling(float3(.20,.30,.25)) * float4x4::translation(float3(0.35,-.45,0.9)));
         ClippedQuadric *topOfQueen = new ClippedQuadric(&goldMetal);
         topOfQueen->topOfQueen();
-        topOfQueen->transform(float4x4::scaling(float3(.28,.25,.25)) * float4x4::translation(float3(0.35,-.23,0.9)));
+        topOfQueen->transform(float4x4::scaling(float3(.40,.30,.25)) * float4x4::translation(float3(0.35,-.26,0.9)));
 //        ClippedQuadric *queenOval = new ClippedQuadric(&metalMaterial);
 //        queenOval->oval();
 //        queenOval->transform(float4x4::scaling(float3(.24,.10,.25)) * float4x4::translation(float3(0.35,-.2,0.9)));
         
-        objects.push_back(rook);
+       // objects.push_back(rook);
         objects.push_back(firstPawn);
         objects.push_back(bottomOfQueen);
         objects.push_back(topOfQueen);
@@ -858,6 +881,13 @@ public:
         objects.push_back(pawnSphere);
         objects.push_back(bottomKingOval);
         objects.push_back(kingCone);
+        objects.push_back(bishopBottom);
+        objects.push_back(bishopBody);
+        objects.push_back(bishopBigOval);
+        objects.push_back(bishopSmallOval1);
+        objects.push_back(bishopSmallOval2);
+        objects.push_back(bishopHead);
+        objects.push_back(bishopTinyTop);
 
     }
     ~Scene()

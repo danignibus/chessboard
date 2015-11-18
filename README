@@ -5,6 +5,7 @@ AIT
 Implemented Features:
 
 1. The board: a diffuse planar square with an 8x8 checkerboard pattern. Materials of adjacent squares must be recognisibly different, but not necessarily white and black (use procedural texturing).	[15 pts]
+2. Pawns: composed of a cone and a sphere at the minimum (but feel free to go artistic), made of plastic (use diffuse + Phong-Blinn BRDF). [15 pts]
 
 
 Things to go for:
@@ -12,6 +13,6 @@ Multi-bite: implement Quadric surfaces clipped by not one, but at least three cl
 Bishops: built from clipped quadrics. Ideally reflective gold and/or silver with procedural normal mapping. Use the gradient of some procedural noise function to perturb the normals, giving the surface a dented, wavy, or bumpy appearance. [15 pts]
 Queen: built from clipped quadrics that must include a hyperboloid for a slender waist. Ideally reflective, made of gold and/or silver. [15 pts]
 Knights: built from clipped quadrics. Made of plastic (diffuse + Phong BRDF), with procedural normal mapping. Use the gradient of some procedural noise function to perturb the normals, giving the surface a dented, wavy, or bumpy appearance. [15 pts]
-Pawns: composed of a cone and a sphere at the minimum (but feel free to go artistic), made of plastic (use diffuse + Phong-Blinn BRDF). [15 pts]
+
 
 15 + 10 + 15 + 15 + 15 +15

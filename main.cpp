@@ -595,9 +595,18 @@ public:
         return finalfinal.normalize();
     }
     
-    ClippedQuadric* rook() {
+    ClippedQuadric* cylinder() {
         shape = *new Quadric(material);
         shape.createCylinder();
+        clipper = *new Quadric(material);
+        clipper.parallelPlanes();
+        return this;
+    }
+    
+    ClippedQuadric* halfDome() {
+        shape = *new Quadric(material);
+        shape.createHalfDome();
+        shape.transform(float4x4::rotation(float3(0.0,0.0,1.0),270));
         clipper = *new Quadric(material);
         clipper.parallelPlanes();
         return this;
@@ -606,6 +615,7 @@ public:
     ClippedQuadric* pawnCone() {
         shape = *new Quadric(material);
         shape.createCone();
+        shape.transform(float4x4::translation(float3(0.0,1.0,0.0)) * float4x4::scaling(float3(.40,1.0,.40)));
         clipper = *new Quadric(material);
         clipper.parallelPlanes();
         return this;
@@ -630,15 +640,6 @@ public:
     ClippedQuadric* topOfQueen() {
         shape = *new Quadric(material);
         shape.createEllipsoid();
-        clipper = *new Quadric(material);
-        clipper.parallelPlanes();
-        return this;
-    }
-    
-    ClippedQuadric* pawn() {
-        shape = *new Quadric(material);
-        shape.createCylinder();
-        shape.transform(float4x4::rotation(float3(0.0,0.0,0.0), 45));
         clipper = *new Quadric(material);
         clipper.parallelPlanes();
         return this;
@@ -677,6 +678,109 @@ public:
             twoRoots.t1 = -1;
         }
         if (!clipper.contains(sol2)) {
+            twoRoots.t2 = -1;
+        }
+        
+        float t = twoRoots.getLesserPositive();
+        Hit hit;
+        hit.t = t;
+        hit.material = material;
+        hit.position = ray.origin + ray.dir * t;
+        hit.normal = getNormalAt(hit.position);
+        return hit;
+        
+    }
+};
+
+class QueenCrown: public Intersectable
+{
+    Quadric shape = NULL;
+    Quadric clipper1 = NULL;
+    Quadric clipper2 = NULL;
+    Quadric clipper3 = NULL;
+public:
+    QueenCrown(Material *material):
+    Intersectable(material)
+    
+    {
+    }
+    
+    float3 getNormalAt(float3 r)
+    {
+        float4 r4 = float4(r.x, r.y, r.z, 1);
+        float4 term1 = shape.coeffs * r4;
+        float4 term2 = r4 * shape.coeffs;
+        float4 final = term1 + term2;
+        
+        float3 finalfinal = float3(final.x, final.y, final.z);
+        return finalfinal.normalize();
+    }
+    
+    QueenCrown* createCrown() {
+        printf("%s", "got here");
+        shape = *new Quadric(material);
+        shape.createEllipsoid();
+        clipper1 = *new Quadric(material);
+        clipper1.createEllipsoid();
+        clipper1.transform(float4x4::scaling(float3(.55,.55,.55)) * float4x4::translation(float3(.2, .7, 0)) );
+        //note: this creates a triangle!
+//            clipper1.transform(float4x4::scaling(float3(.95,.95,.95)) * float4x4::translation(float3(.2, .7, 0)) );
+        clipper2 = *new Quadric(material);
+        clipper2.createEllipsoid();
+        clipper2.transform(float4x4::scaling(float3(.25,.25,.25)));
+        clipper3 = *new Quadric(material);
+        clipper3.createEllipsoid();
+        clipper3.transform(float4x4::scaling(float3(.25,.25,.25)));
+        return this;
+    }
+    
+    QueenCrown* transform(float4x4 transformVector) {
+        shape.transform(transformVector);
+        clipper1.transform(transformVector);
+    
+        clipper2.transform(transformVector);
+        clipper3.transform(transformVector);
+        return this;
+    }
+    
+    
+    
+    //returns a bunch of data about the surface that the ray is intersecting. holds the position of the intersection, t (where along the ray it intersected), the normal, and the material.
+    Hit intersect(const Ray& ray)
+    {
+        
+        //solve quadratic equation for shape quadric
+        QuadraticRoots twoRoots = shape.solveQuadratic(ray);
+        float root1 = twoRoots.t1;
+        float root2 = twoRoots.t2;
+        
+        //for both roots, check if intersection is within clipper quadric
+        //use ray equation e + d dot t to see if intersection is within clipper quadric
+        //substitute the coordinates of a point into the equation of the clipper
+        
+        float3 sol1 = ray.origin + ray.dir*root1;
+        float3 sol2 = ray.origin + ray.dir*root2;
+        
+        //set root to negative value if not
+        
+        //do ray intersection for A
+        //discard hits not in b
+        if (clipper1.contains(sol1)) {
+            twoRoots.t1 = -1;
+        }
+        if (clipper1.contains(sol2)) {
+            twoRoots.t2 = -1;
+        }
+        if (clipper2.contains(sol1)) {
+            twoRoots.t1 = -1;
+        }
+        if (clipper2.contains(sol2)) {
+            twoRoots.t2 = -1;
+        }
+        if (clipper3.contains(sol1)) {
+            twoRoots.t1 = -1;
+        }
+        if (clipper3.contains(sol2)) {
             twoRoots.t2 = -1;
         }
         
@@ -791,7 +895,8 @@ class Scene
     HeadlightMaterial material2;
     Metal goldMetal;
     Metal silverMetal;
-    PhongBlinn phongBlinnMaterial;
+    PhongBlinn phongBlinnMaterialRed;
+    PhongBlinn phongBlinnMaterialBlue;
     ProceduralTexture proceduralTexture;
     
 
@@ -802,7 +907,9 @@ public:
     material2(float3(.8,.8,.8), float3(.8,.8,.8)),
     goldMetal(float3(.21,.485,1.29), float3(3.13, 2.23, 1.76)),
     silverMetal(float3(.15, .14, .13), float3(3.7, 3.11, 2.47)),
-    phongBlinnMaterial(float3(1.0,1.0,1.0), float3(1.0,0.0,0.0), 15.0),
+    phongBlinnMaterialRed(float3(1.0,1.0,1.0), float3(1.0,0.0,0.0), 15.0),
+    phongBlinnMaterialBlue(float3(1.0,1.0,1.0), float3(0.0,0.0,1.0), 15.0),
+
     proceduralTexture(float3(.1,.1,.1))
 
     {
@@ -820,45 +927,60 @@ public:
 //        rook->transform(float4x4::scaling(float3(.20,.25,.25)) * float4x4::translation(float3(-0.75,-0.15,-0.2)));
         
         //pawn piece: sphere, oval, cone
-        ClippedQuadric *firstPawn = new ClippedQuadric(&phongBlinnMaterial);
+        ClippedQuadric *firstPawn = new ClippedQuadric(&phongBlinnMaterialBlue);
         firstPawn->pawnCone();
-        firstPawn->transform(float4x4::scaling(float3(.20,.25,.25)) * float4x4::translation(float3(0.8,-0.3,0.8)));
+        firstPawn->transform(float4x4::scaling(float3(.23,.28,.28)) * float4x4::translation(float3(1.0,-0.3,0.8)));
                              //* float4x4:: rotation(float3(1.0, 0.0, 0.0), M_PI/4));
-        ClippedQuadric *pawnOval = new ClippedQuadric(&phongBlinnMaterial);
+        ClippedQuadric *pawnOval = new ClippedQuadric(&phongBlinnMaterialBlue);
         pawnOval->oval();
-        pawnOval->transform(float4x4::scaling(float3(.24,.10,.25)) * float4x4::translation(float3(0.8,0,0.8)));
-        ClippedQuadric *pawnSphere = new ClippedQuadric(&phongBlinnMaterial);
+        pawnOval->transform(float4x4::scaling(float3(.15,.07,.25)) * float4x4::translation(float3(1.0,-0.10,0.8)));
+        ClippedQuadric *pawnSphere = new ClippedQuadric(&phongBlinnMaterialBlue);
         pawnSphere->oval();
-        pawnSphere->transform(float4x4::scaling(float3(.15,.15,.15)) * float4x4::translation(float3(0.8,0.20,0.8)));
+        pawnSphere->transform(float4x4::scaling(float3(.15,.15,.15)) * float4x4::translation(float3(1.0,0.10,0.8)));
         
-        //king piece
-        ClippedQuadric *bottomKingOval = new ClippedQuadric(&goldMetal);
-        bottomKingOval->oval();
-        bottomKingOval->transform(float4x4::scaling(float3(.25,.10,.25)) * float4x4::translation(float3(-1.5,-.95,0.0)));
-        ClippedQuadric *kingCone = new ClippedQuadric(&goldMetal);
-        kingCone->pawnCone();
-        kingCone->transform(float4x4::scaling(float3(.30,.30,.30)) * float4x4::translation(float3(-1.5,-0.65,0.0)));
+        
+        //knight piece
+        ClippedQuadric *knightBottom = new ClippedQuadric(&phongBlinnMaterialBlue);
+        knightBottom->oval();
+        knightBottom->transform(float4x4::scaling(float3(.24,.09,.21)) * float4x4::translation(float3(-1.40,-.85, .80)));
+        ClippedQuadric *bottomKnightOval = new ClippedQuadric(&phongBlinnMaterialBlue);
+        bottomKnightOval->oval();
+        bottomKnightOval->transform(float4x4::scaling(float3(.22,.10,.18)) * float4x4::translation(float3(-1.4,-.75,0.80)));
+        ClippedQuadric *knightBodyBelly = new ClippedQuadric(&phongBlinnMaterialBlue);
+        ClippedQuadric *knightBody = new ClippedQuadric(&phongBlinnMaterialBlue);
+
+       knightBody->cylinder();
+        knightBodyBelly->halfDome();
+        knightBodyBelly->transform(float4x4::scaling(float3(.10,.12,.15)) * float4x4::translation(float3(-1.4,-.55,0.80)));
+        knightBody->transform(float4x4::scaling(float3(.05,.12,.15)) * float4x4::translation(float3(-1.4,-.55,0.80)));
+        //add half dome rotated 90
+        ClippedQuadric *knightHead = new ClippedQuadric(&phongBlinnMaterialBlue);
+        knightHead->oval();
+        knightHead->transform(float4x4::scaling(float3(.22,.16,.10)) * float4x4::translation(float3(-1.25,.90,.80)));
+        knightHead->transform(float4x4::rotation(float3(0.0,0.0,1.0), 70));
+
+  
         
         //bishop piece
-        ClippedQuadric *bishopBottom = new ClippedQuadric(&phongBlinnMaterial);
+        ClippedQuadric *bishopBottom = new ClippedQuadric(&phongBlinnMaterialRed);
         bishopBottom->oval();
         bishopBottom->transform(float4x4::scaling(float3(.35,.30,.30)) * float4x4::translation(float3(-.5,-.95,-.5)));
-        ClippedQuadric *bishopBody = new ClippedQuadric(&phongBlinnMaterial);
+        ClippedQuadric *bishopBody = new ClippedQuadric(&phongBlinnMaterialRed);
         bishopBody->bottomOfQueen();
         bishopBody->transform(float4x4::scaling(float3(.15,.40,.15)) * float4x4::translation(float3(-.5,-.45,-.5)));
-        ClippedQuadric *bishopBigOval = new ClippedQuadric(&phongBlinnMaterial);
+        ClippedQuadric *bishopBigOval = new ClippedQuadric(&phongBlinnMaterialRed);
         bishopBigOval->oval();
         bishopBigOval->transform(float4x4::scaling(float3(.30,.12,.25)) * float4x4::translation(float3(-0.5,-.11,-.5)));
-        ClippedQuadric *bishopSmallOval1 = new ClippedQuadric(&phongBlinnMaterial);
+        ClippedQuadric *bishopSmallOval1 = new ClippedQuadric(&phongBlinnMaterialRed);
         bishopSmallOval1->oval();
         bishopSmallOval1->transform(float4x4::scaling(float3(.17,.05,.15)) * float4x4::translation(float3(-0.5,.02,-.5)));
-        ClippedQuadric *bishopSmallOval2 = new ClippedQuadric(&phongBlinnMaterial);
+        ClippedQuadric *bishopSmallOval2 = new ClippedQuadric(&phongBlinnMaterialRed);
         bishopSmallOval2->oval();
         bishopSmallOval2->transform(float4x4::scaling(float3(.17,.05,.15)) * float4x4::translation(float3(-0.5,0.1,-.5)));
-        ClippedQuadric *bishopHead = new ClippedQuadric(&phongBlinnMaterial);
+        ClippedQuadric *bishopHead = new ClippedQuadric(&phongBlinnMaterialRed);
         bishopHead->oval();
         bishopHead->transform(float4x4::scaling(float3(.20,.30,.15)) * float4x4::translation(float3(-0.5,0.25,-.5)));
-        ClippedQuadric *bishopTinyTop = new ClippedQuadric(&phongBlinnMaterial);
+        ClippedQuadric *bishopTinyTop = new ClippedQuadric(&phongBlinnMaterialRed);
         bishopTinyTop->oval();
         bishopTinyTop->transform(float4x4::scaling(float3(.05,.05,.05)) * float4x4::translation(float3(-0.5,0.60,-.5)));
         
@@ -869,6 +991,12 @@ public:
         ClippedQuadric *topOfQueen = new ClippedQuadric(&goldMetal);
         topOfQueen->topOfQueen();
         topOfQueen->transform(float4x4::scaling(float3(.40,.30,.25)) * float4x4::translation(float3(0.35,-.26,0.9)));
+//        QueenCrown *queenCrown = new QueenCrown(&goldMetal);
+//        queenCrown->createCrown();
+//        queenCrown->transform(float4x4::scaling(float3(.60,.60,.25))* float4x4::translation(float3(0.50, -.6, 0.0)));
+        
+
+        
 //        ClippedQuadric *queenOval = new ClippedQuadric(&metalMaterial);
 //        queenOval->oval();
 //        queenOval->transform(float4x4::scaling(float3(.24,.10,.25)) * float4x4::translation(float3(0.35,-.2,0.9)));
@@ -876,11 +1004,15 @@ public:
        // objects.push_back(rook);
         objects.push_back(firstPawn);
         objects.push_back(bottomOfQueen);
-        objects.push_back(topOfQueen);
+       objects.push_back(topOfQueen);
+  //      objects.push_back(queenCrown);
         objects.push_back(pawnOval);
         objects.push_back(pawnSphere);
-        objects.push_back(bottomKingOval);
-        objects.push_back(kingCone);
+        objects.push_back(knightBottom);
+        objects.push_back(knightHead);
+       // objects.push_back(knightBody);
+        objects.push_back(knightBodyBelly);
+        objects.push_back(bottomKnightOval);
         objects.push_back(bishopBottom);
         objects.push_back(bishopBody);
         objects.push_back(bishopBigOval);

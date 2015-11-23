@@ -489,8 +489,9 @@ public:
         //make sure it will be visible (origin centered, modest radii)
 
     }
-    void createSphere() {
+    Quadric* createSphere() {
         coeffs._33 = -1;
+        return this;
     }
     
     void createSmallYSphere() {
@@ -498,9 +499,10 @@ public:
         coeffs._11 = .25;
     }
     
-    void createEllipsoid() {
+    Quadric* createEllipsoid() {
         coeffs._33 = -1;
         coeffs._00 = 4;
+        return this;
     }
     
     Quadric* createCylinder() {
@@ -516,8 +518,6 @@ public:
         
         
         coeffs._11 = 1.0;
-       // coeffs._01 = .5;
-      //  coeffs._22 = .5;
         coeffs._03 = .5;
         coeffs._33 = -1;
         return this;
@@ -635,21 +635,14 @@ public:
         coeffs._33 = 0;
         return this;
     }
-    
-    
-    //implement getNormalAt
-    //r is a float3, but this works with float4s, so you have to append 1 for homogeneous then do product, then chop off fourth component, then normalize result
-    
-    //implement intersect--should be similar to Sphere intersect
-    
 };
 
 
 //clipping: evaluate equation. if it's equal to 0, it's on the surface. if not, it's not on the surface.
 class ClippedQuadric: public Intersectable
 {
-    Quadric shape = NULL;
-    Quadric clipper = NULL;
+    Quadric shape = Quadric(material);
+    Quadric clipper = Quadric(material);
  
 public:
     ClippedQuadric(Material *material):
@@ -670,59 +663,47 @@ public:
     }
     
     ClippedQuadric* cylinder() {
-        shape = *new Quadric(material);
         shape.createCylinder();
-        clipper = *new Quadric(material);
         clipper.parallelPlanes();
         return this;
     }
     
     ClippedQuadric* halfDome() {
-        shape = *new Quadric(material);
         shape.createHalfDome();
         shape.transform(float4x4::rotation(float3(0.0,0.0,1.0),270));
-        clipper = *new Quadric(material);
         clipper.parallelPlanes();
         return this;
     }
     
     ClippedQuadric* weirdCylinder() {
-        shape = *new Quadric(material);
         shape.createHyperboloid();
-        clipper = *new Quadric(material);
         clipper.parallelPlanes();
         return this;
     }
     
     ClippedQuadric* pawnCone() {
-        shape = *new Quadric(material);
         shape.createCone();
         shape.transform(float4x4::translation(float3(0.0,1.0,0.0)) * float4x4::scaling(float3(.40,1.0,.40)));
-        clipper = *new Quadric(material);
         clipper.parallelPlanes();
         return this;
     }
     
+
+    
     ClippedQuadric* bottomOfQueen() {
-        shape = *new Quadric(material);
         shape.createHyperboloid();
-        clipper = *new Quadric(material);
         clipper.parallelPlanes();
         return this;
     }
     
     ClippedQuadric* oval() {
-        shape = *new Quadric(material);
         shape.createSphere();
-        clipper = *new Quadric(material);
         clipper.parallelPlanes();
         return this;
     }
     
     ClippedQuadric* topOfQueen() {
-        shape = *new Quadric(material);
         shape.createEllipsoid();
-        clipper = *new Quadric(material);
         clipper.parallelPlanes();
         return this;
     }
@@ -777,11 +758,11 @@ public:
 
 class QueenCrown: public Intersectable
 {
-    Quadric shape = NULL;
-    Quadric clipper1 = NULL;
-    Quadric clipper2 = NULL;
-    Quadric clipper3 = NULL;
-    Quadric clipper4 = NULL;
+    Quadric shape = Quadric(material);
+    Quadric clipper1 = Quadric(material);
+    Quadric clipper2 = Quadric(material);
+    Quadric clipper3 = Quadric(material);
+    Quadric clipper4 = Quadric(material);
 public:
     QueenCrown(Material *material):
     Intersectable(material)
@@ -801,33 +782,26 @@ public:
     }
     
     QueenCrown* createCrown() {
-        shape = *new Quadric(material);
         shape.createEllipsoid();
-        
-        clipper1 = *new Quadric(material);
         clipper1.parallelPlanes();
         clipper1.transform(float4x4::rotation(float3(0,0,1.0), -45));
         clipper1.transform(float4x4::scaling(float3(.25,.25,0.25)));
         clipper1.transform(float4x4::translation(float3(0.4, .4, 0)) );
-        clipper2 = *new Quadric(material);
         clipper2.parallelPlanes();
         clipper2.transform(float4x4::rotation(float3(0,0,1.0), 45));
         clipper2.transform(float4x4::scaling(float3(.25,.25,.25)) );
         clipper2.transform(float4x4::translation(float3(-2.0, -2.0, 0)) );
-        clipper3 = *new Quadric(material);
         clipper3.parallelPlanes();
         clipper3.transform(float4x4::translation(float3(0, 1.2, 0)) );
-        clipper4 = *new Quadric(material);
         clipper4.createSphere();
-        clipper4.transform(float4x4::scaling(float3(.35,.35,.35)) );
-        clipper4.transform(float4x4::translation(float3(1.0, .9, 0)) );
+        clipper4.transform(float4x4::scaling(float3(.12,.12,.12)) );
+        clipper4.transform(float4x4::translation(float3(.45, .7, 0)) );
         return this;
     }
     
     QueenCrown* transform(float4x4 transformVector) {
         shape.transform(transformVector);
         clipper1.transform(transformVector);
-    
         clipper2.transform(transformVector);
         clipper3.transform(transformVector);
         clipper4.transform(transformVector);
@@ -846,13 +820,10 @@ public:
         float root2 = twoRoots.t2;
         
         //for both roots, check if intersection is within clipper quadric
-        //use ray equation e + d dot t to see if intersection is within clipper quadric
-        //substitute the coordinates of a point into the equation of the clipper
+        //use ray equation e + d dot t to see if intersection is within clipper quadric; set root to negative value if not
         
         float3 sol1 = ray.origin + ray.dir*root1;
         float3 sol2 = ray.origin + ray.dir*root2;
-        
-        //set root to negative value if not
         
         //do ray intersection for A
         //discard hits not in b
@@ -875,9 +846,11 @@ public:
             twoRoots.t2 = -1;
         }
         if (clipper4.contains(sol1)) {
+            printf("%s", "got in sol1!");
             twoRoots.t1 = -1;
         }
         if (clipper4.contains(sol2)) {
+            printf("%s", "got in sol2!");
             twoRoots.t2 = -1;
         }
 
@@ -949,7 +922,6 @@ public:
         
         float t= finalNumerator/denominator;
 
-        
         //if position is outside bounds
         if (ray.origin.x + ray.dir.x * t > 4) {
             t = -1;
@@ -986,7 +958,7 @@ class Scene
 
     DiffusePlane diffusePlaneMaterial;
     std::vector<Intersectable*> objects;
-    HeadlightMaterial material;	// THIS NEEDS TO GO WHEN YOU USE A VECTOR OF MATERIALS
+    HeadlightMaterial material;
     
     std::vector<Material*> materials;
     std::vector<LightSource*> lightSources;
@@ -1020,11 +992,6 @@ public:
         //create chessboard
         RectangularPlane *rectPlane = new RectangularPlane(float3(0,.5,0), float3(0,-.9,0), &diffusePlaneMaterial);
        objects.push_back(rectPlane);
-
-        //rook piece
-//        ClippedQuadric *rook = new ClippedQuadric(&material);
-//        rook->rook();
-//        rook->transform(float4x4::scaling(float3(.20,.25,.25)) * float4x4::translation(float3(-0.75,-0.15,-0.2)));
         
         //pawn piece: sphere, oval, cone
         ClippedQuadric *firstPawn = new ClippedQuadric(&phongBlinnMaterialBlue);
@@ -1052,17 +1019,19 @@ public:
         knightBodyBelly->halfDome();
         knightBodyBelly->transform(float4x4::scaling(float3(.10,.12,.15)) * float4x4::translation(float3(-1.4,-.55,0.80)));
         knightBody->transform(float4x4::scaling(float3(.05,.12,.15)) * float4x4::translation(float3(-1.4,-.55,0.80)));
-        //add half dome rotated 90
         ClippedQuadric *knightHead = new ClippedQuadric(&proceduralTexturePhongBlinn);
         knightHead->oval();
         knightHead->transform(float4x4::scaling(float3(.22,.16,.10)) * float4x4::translation(float3(-1.25,.90,.80)));
         knightHead->transform(float4x4::rotation(float3(0.0,0.0,1.0), 70));
 
-        ClippedQuadric *test = new ClippedQuadric(&proceduralTexturePhongBlinn);
-        test->weirdCylinder();
-        test->transform(float4x4::rotation(float3(0,0,1.0), M_PI/2));
+        //testing for Queen quadric
+        Quadric *test = new Quadric(&proceduralTexturePhongBlinn);
+        test->createSphere();
+        //test->transform(float4x4::rotation(float3(0,0,1.0), M_PI/2));
+         test->transform(float4x4::scaling(float3(.12,.12,.12)) );
+        //test->transform(float4x4::translation(float3(1.0,.,.80)));
+        test->transform(float4x4::translation(float3(.45, .7, 0)) );
 
-  
         //bishop piece
         ClippedQuadric *bishopBottom = new ClippedQuadric(&proceduralTextureMetal);
         bishopBottom->oval();
@@ -1102,35 +1071,33 @@ public:
 //        queenOval->oval();
 //        queenOval->transform(float4x4::scaling(float3(.24,.10,.25)) * float4x4::translation(float3(0.35,-.2,0.9)));
         
- //       objects.push_back(rook);
-        objects.push_back(firstPawn);
-        objects.push_back(bottomOfQueen);
+//        objects.push_back(firstPawn);
+//        objects.push_back(bottomOfQueen);
    //     objects.push_back(topOfQueen);
-        objects.push_back(queenCrown);
-        objects.push_back(pawnOval);
-        objects.push_back(pawnSphere);
-        objects.push_back(knightBottom);
-        objects.push_back(knightHead);
-        objects.push_back(knightBody);
-        objects.push_back(knightBodyBelly);
-        objects.push_back(bottomKnightOval);
-        objects.push_back(bishopBottom);
-        objects.push_back(bishopBody);
-        objects.push_back(bishopBigOval);
-        objects.push_back(bishopSmallOval1);
-        objects.push_back(bishopSmallOval2);
-        objects.push_back(bishopHead);
-        objects.push_back(bishopTinyTop);
-       //objects.push_back(test);
+       objects.push_back(queenCrown);
+//        objects.push_back(pawnOval);
+//        objects.push_back(pawnSphere);
+//        objects.push_back(knightBottom);
+//        objects.push_back(knightHead);
+//        objects.push_back(knightBody);
+//        objects.push_back(knightBodyBelly);
+//        objects.push_back(bottomKnightOval);
+//        objects.push_back(bishopBottom);
+//        objects.push_back(bishopBody);
+//        objects.push_back(bishopBigOval);
+//        objects.push_back(bishopSmallOval1);
+//        objects.push_back(bishopSmallOval2);
+//        objects.push_back(bishopHead);
+//        objects.push_back(bishopTinyTop);
+       objects.push_back(test);
 
     }
     ~Scene()
     {
-        // UNCOMMENT THESE WHEN APPROPRIATE
-        //for (std::vector<Material*>::iterator iMaterial = materials.begin(); iMaterial != materials.end(); ++iMaterial)
-        //	delete *iMaterial;
-        //for (std::vector<Intersectable*>::iterator iObject = objects.begin(); iObject != objects.end(); ++iObject)
-        //	delete *iObject;
+        for (std::vector<Material*>::iterator iMaterial = materials.begin(); iMaterial != materials.end(); ++iMaterial)
+        	delete *iMaterial;
+        for (std::vector<Intersectable*>::iterator iObject = objects.begin(); iObject != objects.end(); ++iObject)
+        	delete *iObject;
     }
     
 public:
@@ -1173,11 +1140,9 @@ public:
             Metal::Event e = metal->evaluateEvent(ray.dir, hit.normal);
             float3 reflectedRay = e.reflectionDir;
             float3 reflectance = e.reflectance;
-            //if hit normal is pointing to other side
-            //dot product of normal and viewDir
+            //check if hit normal is pointing to other side
             float3 normal = hit.normal;
             if (ray.dir.dot(normal) < 0) {
-                
             }
             else {
                 normal = -normal;
@@ -1191,8 +1156,6 @@ public:
             ProceduralTextureMetal::Event e = proceduralTextureMetal->evaluateEvent(ray.dir, hit.normal, hit.position);
             float3 reflectedRay = e.reflectionDir;
             float3 reflectance = e.reflectance;
-            //if hit normal is pointing to other side
-            //dot product of normal and viewDir
             float3 normal = hit.normal;
             if (ray.dir.dot(normal) < 0) {
                 
@@ -1219,15 +1182,9 @@ public:
                     sum += hit.material->shade(hit.normal, -ray.dir, currentLightDir, currentPowerDensity, hit.position);
                     
                 }
-                
             }
-            //if it exceeds depth value, just return black
         }
-        
-        
         return sum;
-        //return hit.material->getColor(hit.position, hit.normal, -ray.dir);
-        
     }
 
 };

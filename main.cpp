@@ -1,3 +1,9 @@
+//
+//  Raycaster Project: Chessboard
+//
+//  Created by Dani Gnibus.
+//  Copyright (c) 2015 Dani Gnibus. All rights reserved.
+//
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdlib.h>
@@ -74,21 +80,22 @@ public:
     }
     
 };
+
 // class PointLight : public LightSource
 class PointLight: public LightSource{
     float3 position;
-    float3 powerDensity;
+    float3 power;
 public:
-    PointLight(float3 position, float3 powerDensity):
+    PointLight(float3 position, float3 power):
     position(position),
-    powerDensity(powerDensity)
+    power(power)
     {
     }
     
     float3 getPowerDensityAt(float3 x) {
         float distance = position.distance(x);
-        float3 newPowerDensity = powerDensity * (1/(distance*distance));
-        return newPowerDensity;
+        float3 powerDensity = power * (1/(distance*distance));
+        return powerDensity;
     }
     
     float3 getLightDirAt(float3 x) {
@@ -133,50 +140,7 @@ public:
     }
 };
 
-class HeadlightMaterial : public Material {
-    float3 frontFaceColor;
-    float3 backFaceColor;
-public:
-    HeadlightMaterial(float3 frontfaceColor,
-                      float3 backfaceColor  ):
-    frontFaceColor(frontFaceColor),
-    backFaceColor(backFaceColor){}
-    HeadlightMaterial():
-    frontFaceColor(float3::random()),
-    backFaceColor(float3::random())
-    {}
-    float3 getColor(
-                            float3 position,
-                            float3 normal,
-                            float3 viewDir) {
-        //implement headlight shading formula here
-        float3 newColor;
-        if (viewDir.dot(normal) < 0) {
-            newColor.x = -viewDir.dot(normal)*backFaceColor.x;
-            newColor.y = -viewDir.dot(normal)*backFaceColor.y;
-            newColor.z = -viewDir.dot(normal)*backFaceColor.z;
-        }
-        else {
-            newColor.x = viewDir.dot(normal)*frontFaceColor.x;
-            newColor.y = viewDir.dot(normal)*frontFaceColor.y;
-            newColor.z = viewDir.dot(normal)*frontFaceColor.z;
-        }
-        
-        return newColor;
-        
-    }
-    //TODO: fix this!!!!
-    float3 shade(
-                 float3 normal,
-                 float3 viewDir,
-                 float3 lightDir,
-                 float3 lightPowerDensity,
-                 float3 position){
-        return frontFaceColor;
-    };
-};
-
-
+//Metal material class
 class Metal : public Material {
     float3 r0;
 public:
@@ -242,8 +206,8 @@ public:
     //modify this to take in position
     Event evaluateEvent(float3 inDir, float3 normal, float3 position) {
         float3 sNoiseGrad = snoiseGrad(position).normalize();
-        float freq = 10;
-        float amplitude = 1;
+        float freq = 35;//10
+        float amplitude = 8; //1
         float3 perturbedNormal = normal + snoiseGrad(position * freq) * amplitude;
         perturbedNormal.normalize();
         
@@ -258,6 +222,9 @@ public:
         return e; }
     
 };
+
+
+
 
 class PhongBlinn : public Material {
     float3 ks;
@@ -348,8 +315,8 @@ public:
         //normal mapping: use sNoisegrad function to return gradient
         float3 sNoiseGrad = snoiseGrad(position).normalize();
         //add this color to the normal
-        float freq = 110;
-        float amplitude = 5;
+        float freq = 130;
+        float amplitude = 8;
         float3 perturbedNormal = normal + snoiseGrad(position * freq) * amplitude;
         perturbedNormal.normalize();
         float3 halfway =
@@ -372,19 +339,42 @@ public:
 };
 
 
+
+
 class DiffusePlane : public Material
 {
     float3 kd;
+    float scale = 32;
+    float turbulence = 50;
+    float period = 32;
+    float sharpness = 1;
     //for chessboard: kd depends on where hit position is
     
 public:
-    
+
     float3 getColor(
                     float3 position,
                     float3 normal,
                     float3 viewDir)
     {
         return normal;
+    }
+    //noise function
+    float snoise(float3 r) {
+        unsigned int x = 0x0625DF73;
+        unsigned int y = 0xD1B84B45;
+        unsigned int z = 0x152AD8D0;
+        float f = 0;
+        for(int i=0; i<32; i++) {
+            float3 s(	x/(float)0xffffffff,
+                     y/(float)0xffffffff,
+                     z/(float)0xffffffff);
+            f += sin(s.dot(r));
+            x = x << 1 | x >> 31;
+            y = y << 1 | y >> 31;
+            z = z << 1 | z >> 31;
+        }
+        return f / 64.0 + 0.5;
     }
     
     float3 shade(
@@ -395,6 +385,7 @@ public:
                  float3 position)
     {
         //add some large positive integer before converting
+
         
         if (((int)(position.x + 100)+ (int)(position.y + 100) + (int)(position.z + 100) ) % 2 ==0) {
             kd = float3(0.0, 0.0, 0.0);
@@ -402,8 +393,11 @@ public:
         else {
             kd = float3(1.0, 1.0, 1.0);
         }
+        float w = position.x * period + pow(snoise(position * scale), sharpness)*turbulence;
+        w = pow(sin(w)*0.5+0.5, 4);
+        return (float3(0.8, 0.8, 0.8) * w + kd * (1-w)) * normal.dot(lightDir) * lightPowerDensity ;
         //        return kd * lightPowerDensity * cosTheta;
-        return kd;
+       // return kd;
     }
 };
 
@@ -494,11 +488,6 @@ public:
         return this;
     }
     
-    void createSmallYSphere() {
-        coeffs._33 = -1;
-        coeffs._11 = .25;
-    }
-    
     Quadric* createEllipsoid() {
         coeffs._33 = -1;
         coeffs._00 = 4;
@@ -506,23 +495,12 @@ public:
     }
     
     Quadric* createCylinder() {
-
-        
         coeffs._11 = 0;
         coeffs._33 = -1;
         return this;
     
     }
     
-    Quadric* createWeirdCylinder() {
-        
-        
-        coeffs._11 = 1.0;
-        coeffs._03 = .5;
-        coeffs._33 = -1;
-        return this;
-        
-    }
     Quadric* createCone() {
         coeffs._11 = -1;
         coeffs._33 =0;
@@ -534,23 +512,19 @@ public:
         coeffs._11 = -1;
         coeffs._22 = 1;
         coeffs._33= -1;
-
         return this;
     }
-    
     
     Quadric* createHalfDome() {
         coeffs._11 = .5;
         coeffs._13 = 1;
         coeffs._33 = -1;
-
         return this;
     }
     
     Quadric* createRoundedBottom() {
         coeffs._11 = .5;
         coeffs._02 = 1;
-        //OR for slightly less rounded do ._03
         coeffs._33 = -1;
         return this;
     }
@@ -567,7 +541,6 @@ public:
         coeffs = tInverse * coeffs * tInverse.transpose();
         return this;
     }
-    
     
     QuadraticRoots solveQuadratic(const Ray& ray)
     {
@@ -614,7 +587,6 @@ public:
         if (result < 0)
             return true;
         else return false;
-        // return false if positive
     }
     
     //infinite slab. ideal for clipping.
@@ -688,8 +660,6 @@ public:
         return this;
     }
     
-
-    
     ClippedQuadric* bottomOfQueen() {
         shape.createHyperboloid();
         clipper.parallelPlanes();
@@ -708,16 +678,12 @@ public:
         return this;
     }
     
-    
     ClippedQuadric* transform(float4x4 transformVector) {
         shape.transform(transformVector);
         clipper.transform(transformVector);
         return this;
     }
-
-    
-    
-    
+  
     //returns a bunch of data about the surface that the ray is intersecting. holds the position of the intersection, t (where along the ray it intersected), the normal, and the material.
     Hit intersect(const Ray& ray)
     {
@@ -756,13 +722,14 @@ public:
     }
 };
 
+//Class to cut ellipsoid of Queen's crown into a trapezoid on top. Uses 3 clippers
 class QueenCrown: public Intersectable
 {
     Quadric shape = Quadric(material);
     Quadric clipper1 = Quadric(material);
     Quadric clipper2 = Quadric(material);
     Quadric clipper3 = Quadric(material);
-    Quadric clipper4 = Quadric(material);
+
 public:
     QueenCrown(Material *material):
     Intersectable(material)
@@ -793,9 +760,6 @@ public:
         clipper2.transform(float4x4::translation(float3(-2.0, -2.0, 0)) );
         clipper3.parallelPlanes();
         clipper3.transform(float4x4::translation(float3(0, 1.2, 0)) );
-        clipper4.createSphere();
-        clipper4.transform(float4x4::scaling(float3(.12,.12,.12)) );
-        clipper4.transform(float4x4::translation(float3(.45, .7, 0)) );
         return this;
     }
     
@@ -804,10 +768,8 @@ public:
         clipper1.transform(transformVector);
         clipper2.transform(transformVector);
         clipper3.transform(transformVector);
-        clipper4.transform(transformVector);
         return this;
     }
-    
     
     
     //returns a bunch of data about the surface that the ray is intersecting. holds the position of the intersection, t (where along the ray it intersected), the normal, and the material.
@@ -845,17 +807,7 @@ public:
         if (clipper3.contains(sol2)) {
             twoRoots.t2 = -1;
         }
-        if (clipper4.contains(sol1)) {
-            printf("%s", "got in sol1!");
-            twoRoots.t1 = -1;
-        }
-        if (clipper4.contains(sol2)) {
-            printf("%s", "got in sol2!");
-            twoRoots.t2 = -1;
-        }
 
-
-        
         float t = twoRoots.getLesserPositive();
         Hit hit;
         hit.t = t;
@@ -867,37 +819,6 @@ public:
     }
 };
 
-
-class Plane: public Intersectable
-{
-    float3 normal;
-    float3 r0;
-public:
-    Plane(float3 normal, float3 r0, Material* material):
-    Intersectable(material),
-    normal(normal),
-    r0(r0)
-    {
-        
-    }
-    
-    Hit intersect(const Ray& ray)
-    {
-        
-        float3 numerator = r0 - ray.origin;
-        float finalNumerator = numerator.dot(normal);
-        float denominator = ray.dir.dot(normal);
-        
-        float t= finalNumerator/denominator;
-        
-        Hit hit;
-        hit.t = t;
-        hit.material = material;
-        hit.position = ray.origin + ray.dir * t;
-        hit.normal = normal;
-        return hit;
-    }
-};
 
 //Plane class for chessboard
 class RectangularPlane: public Intersectable
@@ -946,36 +867,33 @@ public:
         hit.t = t;
         hit.material = material;
         hit.position = ray.origin + ray.dir * t;
-        hit.normal = normal;
+        hit.normal = normal.normalize();
         return hit;
     }
 };
 
-
+//Scene class
 class Scene
 {
     Camera camera;
 
     DiffusePlane diffusePlaneMaterial;
     std::vector<Intersectable*> objects;
-    HeadlightMaterial material;
     
     std::vector<Material*> materials;
     std::vector<LightSource*> lightSources;
-    HeadlightMaterial material2;
     Metal goldMetal;
     Metal silverMetal;
     PhongBlinn phongBlinnMaterialRed;
     PhongBlinn phongBlinnMaterialBlue;
     ProceduralTexturePhongBlinn proceduralTexturePhongBlinn;
     ProceduralTextureMetal proceduralTextureMetal;
-    
 
-    
 public:
     Scene():
+    
+    //initialize materials
     diffusePlaneMaterial(),
-    material2(float3(.8,.8,.8), float3(.8,.8,.8)),
     goldMetal(float3(.21,.485,1.29), float3(3.13, 2.23, 1.76)),
     silverMetal(float3(.15, .14, .13), float3(3.7, 3.11, 2.47)),
     phongBlinnMaterialRed(float3(1.0,1.0,1.0), float3(1.0,0.0,0.0), 15.0),
@@ -985,7 +903,7 @@ public:
     proceduralTextureMetal(float3(.21,.485,1.29), float3(3.13, 2.23, 1.76))
 
     {
-
+        //add new light source
         DirectionalLight *light1 = new DirectionalLight(float3(0.0, 1.0, 1.0), float3(1.0,1.0,1.0));
         lightSources.push_back(light1);
         
@@ -997,14 +915,12 @@ public:
         ClippedQuadric *firstPawn = new ClippedQuadric(&phongBlinnMaterialBlue);
         firstPawn->pawnCone();
         firstPawn->transform(float4x4::scaling(float3(.23,.28,.28)) * float4x4::translation(float3(1.0,-0.3,0.8)));
-                             //* float4x4:: rotation(float3(1.0, 0.0, 0.0), M_PI/4));
         ClippedQuadric *pawnOval = new ClippedQuadric(&phongBlinnMaterialBlue);
         pawnOval->oval();
         pawnOval->transform(float4x4::scaling(float3(.15,.07,.25)) * float4x4::translation(float3(1.0,-0.10,0.8)));
         ClippedQuadric *pawnSphere = new ClippedQuadric(&phongBlinnMaterialBlue);
         pawnSphere->oval();
         pawnSphere->transform(float4x4::scaling(float3(.15,.15,.15)) * float4x4::translation(float3(1.0,0.10,0.8)));
-        
         
         //knight piece
         ClippedQuadric *knightBottom = new ClippedQuadric(&proceduralTexturePhongBlinn);
@@ -1023,14 +939,6 @@ public:
         knightHead->oval();
         knightHead->transform(float4x4::scaling(float3(.22,.16,.10)) * float4x4::translation(float3(-1.25,.90,.80)));
         knightHead->transform(float4x4::rotation(float3(0.0,0.0,1.0), 70));
-
-        //testing for Queen quadric
-        Quadric *test = new Quadric(&proceduralTexturePhongBlinn);
-        test->createSphere();
-        //test->transform(float4x4::rotation(float3(0,0,1.0), M_PI/2));
-         test->transform(float4x4::scaling(float3(.12,.12,.12)) );
-        //test->transform(float4x4::translation(float3(1.0,.,.80)));
-        test->transform(float4x4::translation(float3(.45, .7, 0)) );
 
         //bishop piece
         ClippedQuadric *bishopBottom = new ClippedQuadric(&proceduralTextureMetal);
@@ -1059,37 +967,36 @@ public:
         ClippedQuadric *bottomOfQueen = new ClippedQuadric(&goldMetal);
         bottomOfQueen->bottomOfQueen();
         bottomOfQueen->transform(float4x4::scaling(float3(.18,.40,.25)) * float4x4::translation(float3(0.35,-.35,0.9)));
-//        ClippedQuadric *topOfQueen = new ClippedQuadric(&goldMetal);
-//        topOfQueen->topOfQueen();
-//        topOfQueen->transform(float4x4::scaling(float3(.40,.30,.25)) * float4x4::translation(float3(0.35,0.05,0.9)));
         QueenCrown *queenCrown = new QueenCrown(&goldMetal);
         queenCrown->createCrown();
-        queenCrown->transform(float4x4::scaling(float3(.50,.50,.25))* float4x4::translation(float3(0.45, .55, 0)));
+        queenCrown->transform(float4x4::scaling(float3(.50,.50,.25))* float4x4::translation(float3(0.5, .48, 0)));
+        Quadric *topOfQueenCrown = new Quadric(&goldMetal);
+        topOfQueenCrown->createSphere();
+        topOfQueenCrown->transform(float4x4::scaling(float3(.10,.10,.10)) * float4x4::translation(float3(.5, .62, 0)));
+        Quadric *topOfQueenCrown2 = new Quadric(&goldMetal);
+        topOfQueenCrown2->createSphere();
+        topOfQueenCrown2->transform(float4x4::scaling(float3(.05,.05,.05)) * float4x4::translation(float3(.5, .75, 0)));
         
-        
-//        ClippedQuadric *queenOval = new ClippedQuadric(&metalMaterial);
-//        queenOval->oval();
-//        queenOval->transform(float4x4::scaling(float3(.24,.10,.25)) * float4x4::translation(float3(0.35,-.2,0.9)));
-        
-//        objects.push_back(firstPawn);
-//        objects.push_back(bottomOfQueen);
-   //     objects.push_back(topOfQueen);
-       objects.push_back(queenCrown);
-//        objects.push_back(pawnOval);
-//        objects.push_back(pawnSphere);
-//        objects.push_back(knightBottom);
-//        objects.push_back(knightHead);
-//        objects.push_back(knightBody);
-//        objects.push_back(knightBodyBelly);
-//        objects.push_back(bottomKnightOval);
-//        objects.push_back(bishopBottom);
-//        objects.push_back(bishopBody);
-//        objects.push_back(bishopBigOval);
-//        objects.push_back(bishopSmallOval1);
-//        objects.push_back(bishopSmallOval2);
-//        objects.push_back(bishopHead);
-//        objects.push_back(bishopTinyTop);
-       objects.push_back(test);
+        //add all objects to object vector
+        objects.push_back(firstPawn);
+        objects.push_back(bottomOfQueen);
+        objects.push_back(queenCrown);
+        objects.push_back(topOfQueenCrown);
+        objects.push_back(topOfQueenCrown2);
+        objects.push_back(pawnOval);
+        objects.push_back(pawnSphere);
+        objects.push_back(knightBottom);
+        objects.push_back(knightHead);
+        objects.push_back(knightBody);
+        objects.push_back(knightBodyBelly);
+        objects.push_back(bottomKnightOval);
+        objects.push_back(bishopBottom);
+        objects.push_back(bishopBody);
+        objects.push_back(bishopBigOval);
+        objects.push_back(bishopSmallOval1);
+        objects.push_back(bishopSmallOval2);
+        objects.push_back(bishopHead);
+        objects.push_back(bishopTinyTop);
 
     }
     ~Scene()
@@ -1135,7 +1042,8 @@ public:
         float3 sum = float3(0,0,0);
         Metal* metal = dynamic_cast< Metal*>(hit.material);
         ProceduralTextureMetal *proceduralTextureMetal =dynamic_cast< ProceduralTextureMetal*>(hit.material);
-        //TODO: add switch statement of metal
+
+        //if it's a metal or procedural-textured metal, need to handle reflectance
         if (metal != NULL) {
             Metal::Event e = metal->evaluateEvent(ray.dir, hit.normal);
             float3 reflectedRay = e.reflectionDir;
